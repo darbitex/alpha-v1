@@ -66,6 +66,30 @@ aptos move view --function-id <publisher>::pool_factory::get_all_pools
 # returns the list of canonical pools
 ```
 
+## Upgrade history
+
+### Upgrade 1 — 2026-04-10, audit patch (H1 / L1 / L2 / M2 / M3 / M4 / M5)
+
+First real multisig-gated upgrade. Fixed the sub-10k swap underflow DoS
+and six smaller findings bundled into one compatible upgrade.
+
+| Step | TX | Notes |
+|---|---|---|
+| Propose (seq#9, hash-only) | `0xfffbb1a493a6d1a81718027cf572c324d16ab42d334330f39143f61a73a35690` | creator `0x85d1e4…`, auto-vote 1/3 |
+| Approval 1 | on-chain via Petra mobile | owner `0xf6e1d1fd…`, 2/3 |
+| Approval 2 | on-chain via Petra mobile | owner `0xa1189e55…`, 3/3 |
+| Execute | `0xe7804be3f1db9e60f5c4108f503c07f6d301767c296bab27571d4ffcc538ad91` | `is_upgrade: true`, version 4833188571 |
+
+Post-upgrade verification: `swap_entry` with `amount_in = 1` and `500`
+against the USDT/USDC pool succeeded (both would have aborted with a u64
+underflow on the pre-upgrade code). `protocol_fee_a` advanced `1 → 2 → 3`
+across the two test swaps, confirming the fee accounting still routes to
+the hardcoded treasury correctly after the patch.
+
+Coordination took about 18 minutes from propose to execute. The Petra
+Vault desktop UI refused to display the inner `publish_package_txn`; the
+approvals were signed from Petra mobile instead.
+
 ## Pools
 
 | # | Pair | Address | Seed | TVL |
