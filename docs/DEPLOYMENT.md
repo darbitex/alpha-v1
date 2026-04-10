@@ -66,19 +66,39 @@ aptos move view --function-id <publisher>::pool_factory::get_all_pools
 # returns the list of canonical pools
 ```
 
+## Pools
+
+| # | Pair | Address | Seed | TVL |
+|---|---|---|---|---|
+| 1 | USDT / USDC native | `0x2d17a08cd2ee2da9c37b1cc3107bd56cf8d5fea0b959aa2840e951ed0e239a0a` | 1.0 USDT + 1.0 USDC | ~$2 |
+| 2 | APT / USDT native | `0x2a9e11a6763fcc605a34e657be24d9a73f91c280f18ec420af1a854cade48b52` | 0.5747 APT + 0.5 USDT | ~$1 |
+| 3 | APT / USDC native | `0x1d468111c8bacc02f4f6bc8ebb79378e25074897d38b274d662bd3947fdcdf0f` | 0.5747 APT + 0.5 USDC | ~$1 |
+
+Seeds for pools 2 and 3 are sized at 1 APT ≈ $0.87 so each side carries
+about $0.50 of value, matching the market rate at deploy time.
+
 ## Smoke test
 
-A single USDT / USDC native pool was created as a post-deploy smoke test:
+All three pools were exercised end-to-end against mainnet immediately
+after creation. Each ran the same six-step sequence: `swap_entry`,
+`pending_fees` view, `add_liquidity`, `remove_liquidity` of half the added
+LP, and final-state views.
 
-| Item | Value |
-|---|---|
-| Pool | `0x2d17a08cd2ee2da9c37b1cc3107bd56cf8d5fea0b959aa2840e951ed0e239a0a` |
-| Pair | USDT native / USDC native |
-| Seed | 1.0 USDT + 1.0 USDC |
-| LP minted to creator | 999 000 (1000 locked as minimum liquidity) |
+All 18 calls succeeded. The constant-product swap math matched the
+formula exactly. The first swap on each pool produced a protocol fee that
+confirmed the hardcoded `TREASURY` routing works at runtime:
 
-The smoke test exercised `create_canonical_pool`, `swap_entry`,
-`pending_fees`, `add_liquidity`, `remove_liquidity`, and the `protocol_config`
-view. Swap math matched the constant-product formula exactly; the first swap
-produced one raw unit of protocol fee, which confirmed the hardcoded
-`TREASURY` routing works at runtime.
+- Pool 1, `swap 10 000 USDT` → `protocol_fee_a = 1 raw USDT`
+- Pool 2, `swap 1 000 000 octas APT` → `protocol_fee_a = 10 octas APT`
+- Pool 3, `swap 1 000 000 octas APT` → `protocol_fee_a = 10 octas APT`
+
+Pools 2 and 3 produced byte-identical deltas across every step because
+they were seeded with the same values and swapped the same amounts in the
+same direction. This confirms the math is deterministic under identical
+inputs.
+
+See `AUDIT-2026-04-10.md` for the audit run that followed the smoke
+tests. One HIGH finding (H1) documents a swap underflow for amounts
+below 10 000 raw units, observed at exactly this boundary — the smoke
+tests sat right on the boundary and succeeded, but a swap of 9 999 raw
+would have aborted.
