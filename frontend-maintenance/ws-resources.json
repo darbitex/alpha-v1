@@ -1,0 +1,10 @@
+{
+  "headers": {
+    "/**": { "Cache-Control": "public, max-age=120" }
+  },
+  "routes": {
+    "/*": "/index.html"
+  },
+  "site_name": "Darbitex (upgrading)",
+  "object_id": "0x050df98fbc08b6c4e5d8d41dc75835c2a2d491cc1c9687d8782a2b513a217718"
+}

@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Darbitex — upgrading</title>
+<meta name="description" content="Darbitex frontend is being upgraded. Contracts remain live on Aptos mainnet.">
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<style>
+  :root { --bg:#0a0a0a; --fg:#e8e8e8; --dim:#888; --accent:#00ff88; --line:#1a1a1a; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    background: var(--bg); color: var(--fg);
+    font-family: ui-monospace, 'SF Mono', Menlo, Consolas, monospace;
+    font-size: 15px; line-height: 1.6; min-height: 100vh;
+  }
+  body { display: flex; align-items: center; justify-content: center; padding: 40px 24px; }
+  main { max-width: 560px; width: 100%; }
+  .mark { display: block; width: 48px; height: 48px; margin-bottom: 32px; opacity: 0.9; }
+  h1 { font-size: 20px; font-weight: 600; letter-spacing: -0.01em; margin-bottom: 8px; }
+  .tag { color: var(--dim); font-size: 13px; margin-bottom: 32px; }
+  p { margin-bottom: 16px; }
+  .dim { color: var(--dim); }
+  hr { border: none; border-top: 1px solid var(--line); margin: 32px 0; }
+  h2 { font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: var(--dim); margin-bottom: 12px; }
+  a { color: var(--accent); text-decoration: none; border-bottom: 1px solid transparent; transition: border-color 0.15s; }
+  a:hover { border-bottom-color: var(--accent); }
+  ul { list-style: none; }
+  li { padding: 6px 0; color: var(--dim); font-size: 13px; }
+  li span { color: var(--fg); }
+  code { font-family: inherit; color: var(--accent); font-size: 12px; word-break: break-all; }
+  .pulse { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--accent); margin-right: 6px; animation: pulse 1.5s ease-in-out infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+  footer { margin-top: 48px; font-size: 12px; color: var(--dim); }
+</style>
+</head>
+<body>
+<main>
+  <svg class="mark" viewBox="0 0 48 48" fill="none" stroke="#00ff88" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M6 36 Q 18 36 24 24 T 42 12"/>
+    <circle cx="42" cy="12" r="2.5" fill="#00ff88"/>
+  </svg>
+
+  <h1><span class="pulse"></span>Frontend upgrade in progress.</h1>
+  <p class="tag">Contracts remain live on Aptos mainnet. This page swaps back to the app shortly.</p>
+
+  <p>
+    Darbitex is rolling out a new frontend built on Vite + React + TypeScript,
+    using the Aptos wallet-adapter and ts-sdk v6 directly. No changes to the
+    on-chain package — your funds and LP positions are untouched.
+  </p>
+  <p>
+    If you need to interact with pools right now, everything is callable
+    directly from the Aptos CLI or any Move aggregator against the package
+    below.
+  </p>
+
+  <hr>
+
+  <h2>On-chain (always live)</h2>
+  <ul>
+    <li><span>Package</span> <code>0x810693eb5e17185ee7d80e548a48edcb60be4b1d56d33f8c1be716d9fb422d2e</code></li>
+    <li><span><a href="https://explorer.aptoslabs.com/account/0x810693eb5e17185ee7d80e548a48edcb60be4b1d56d33f8c1be716d9fb422d2e/modules/code/pool_factory?network=mainnet">View on Aptos Explorer</a></span></li>
+    <li><span><a href="https://github.com/darbitex/alpha-v1">GitHub source</a></span></li>
+    <li><span><a href="https://x.com/Darbitex">@Darbitex on X</a></span></li>
+  </ul>
+
+  <footer>
+    Pools, reserves, and LP balances are queryable from any Aptos RPC node.
+    This page is served from a Walrus site on Sui mainnet — the same object
+    that will host the new app once the upgrade lands.
+  </footer>
+</main>
+</body>
+</html>

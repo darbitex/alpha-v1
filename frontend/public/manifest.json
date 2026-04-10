@@ -1,0 +1,10 @@
+{
+  "name": "Darbitex",
+  "short_name": "1BPS",
+  "description": "Permissionless V4 Hooks DEX on Aptos — 0.01% fee",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a0a0a",
+  "theme_color": "#00ff88",
+  "orientation": "portrait"
+}
