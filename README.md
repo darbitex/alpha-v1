@@ -1,5 +1,7 @@
 # Darbitex
 
+**Version: alpha V1.1** (see [`docs/VERSIONS.md`](./docs/VERSIONS.md) for history)
+
 Permissionless hooks DEX on Aptos. Canonical pools, unowned, composable, 1 bps fee.
 
 Published from a multisig account so upgrading the package requires the same
