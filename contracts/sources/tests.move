@@ -184,6 +184,28 @@ module darbitex::tests {
     }
 
     #[test(darbitex = @darbitex, user = @0x100, framework = @0x1)]
+    /// Sub-10k swaps must not underflow lp_fee. Regression for the H1 DoS
+    /// where `total_fee = amount_in / 10_000` floored to 0 while `extra_fee`
+    /// was floor-protected to 1, so `lp_fee = 0 - 0 - 1` underflowed u64.
+    fun test_swap_below_total_fee_floor(darbitex: &signer, user: &signer, framework: &signer) acquires TestMints {
+        let (meta_a, meta_b) = setup(framework, darbitex);
+        let pool_addr = create_pool(darbitex, meta_a, meta_b, POOL_AMOUNT);
+
+        account::create_account_for_test(@0x100);
+        give_tokens(@0x100, 100_000);
+
+        // Walk the fee boundary: every amount in this range used to abort.
+        pool::swap_entry(user, pool_addr, meta_a, 1, 0);
+        pool::swap_entry(user, pool_addr, meta_a, 500, 0);
+        pool::swap_entry(user, pool_addr, meta_a, 9_999, 0);
+        pool::swap_entry(user, pool_addr, meta_a, 10_000, 0);
+
+        let (_, _, pa, _) = pool::pending_fees(pool_addr);
+        // 4 swaps × min protocol fee 1 = 4 raw minimum accrued.
+        assert!(pa >= 4, 1);
+    }
+
+    #[test(darbitex = @darbitex, user = @0x100, framework = @0x1)]
     #[expected_failure(abort_code = 3, location = darbitex::pool)]
     /// Slippage protection: swap fails if output < min_out.
     fun test_swap_slippage_protection(darbitex: &signer, user: &signer, framework: &signer) acquires TestMints {

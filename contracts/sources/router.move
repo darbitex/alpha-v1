@@ -14,9 +14,10 @@ module darbitex::router {
     use darbitex::hook_wrapper;
 
     const E_DEADLINE: u64 = 1;
+    const E_SAME_POOL: u64 = 2;
 
     fun assert_deadline(deadline: u64) {
-        assert!(timestamp::now_seconds() <= deadline, E_DEADLINE);
+        assert!(timestamp::now_seconds() < deadline, E_DEADLINE);
     }
 
     // ===== Single Hop =====
@@ -56,6 +57,7 @@ module darbitex::router {
         amount_in: u64, min_out: u64, deadline: u64,
     ) {
         assert_deadline(deadline);
+        assert!(pool1_addr != pool2_addr, E_SAME_POOL);
         let addr = signer::address_of(swapper);
         let fa = primary_fungible_store::withdraw(swapper, metadata_in, amount_in);
         let fa = pool::swap(pool1_addr, addr, fa, 0);
@@ -73,6 +75,7 @@ module darbitex::router {
         amount_in: u64, min_out: u64, deadline: u64,
     ) {
         assert_deadline(deadline);
+        assert!(pool1_addr != pool2_addr, E_SAME_POOL);
         let addr = signer::address_of(swapper);
         let fa = primary_fungible_store::withdraw(swapper, metadata_in, amount_in);
         let fa = if (wrapped1) {
@@ -98,6 +101,9 @@ module darbitex::router {
         amount_in: u64, min_out: u64, deadline: u64,
     ) {
         assert_deadline(deadline);
+        assert!(pool1_addr != pool2_addr
+             && pool2_addr != pool3_addr
+             && pool1_addr != pool3_addr, E_SAME_POOL);
         let addr = signer::address_of(swapper);
         let fa = primary_fungible_store::withdraw(swapper, metadata_in, amount_in);
         let fa = pool::swap(pool1_addr, addr, fa, 0);
@@ -116,6 +122,9 @@ module darbitex::router {
         amount_in: u64, min_out: u64, deadline: u64,
     ) {
         assert_deadline(deadline);
+        assert!(pool1_addr != pool2_addr
+             && pool2_addr != pool3_addr
+             && pool1_addr != pool3_addr, E_SAME_POOL);
         let addr = signer::address_of(swapper);
         let fa = primary_fungible_store::withdraw(swapper, metadata_in, amount_in);
         let fa = if (wrapped1) {

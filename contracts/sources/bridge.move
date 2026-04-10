@@ -20,7 +20,7 @@ module darbitex::bridge {
     // ===== Constants =====
     const FEE_BPS: u64 = 1;
     const BPS_DENOM: u64 = 10_000;
-    const MAX_IMBALANCE_PCT: u64 = 80;
+    const MAX_IMBALANCE_PCT: u64 = 60;
     const MINIMUM_LIQUIDITY: u64 = 1000;
     const BRIDGE_SEED: vector<u8> = b"darbitex_bridge";
 
@@ -92,6 +92,13 @@ module darbitex::bridge {
     ) {
         let creator_addr = signer::address_of(creator);
         assert!(amount_from > 0 && amount_to > 0, E_ZERO);
+
+        // Pegged-pair bridge: the initial deposit must be symmetric within
+        // 1% to prevent a first-depositor from seeding a skewed ratio that
+        // later callers cannot distinguish from a legitimate bridge.
+        let hi = if (amount_from > amount_to) { amount_from } else { amount_to };
+        let lo = if (amount_from > amount_to) { amount_to } else { amount_from };
+        assert!(hi - lo <= hi / 100, E_DISPROPORTIONAL);
 
         let seed = derive_bridge_seed(metadata_from, metadata_to);
         let constructor_ref = object::create_named_object(creator, seed);

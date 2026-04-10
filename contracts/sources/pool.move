@@ -310,6 +310,7 @@ module darbitex::pool {
     ) acquires Pool {
         assert!(cap.pool_addr == pool_addr, E_WRONG_POOL);
         let pool = borrow_global_mut<Pool>(pool_addr);
+        assert!(!pool.locked, E_LOCKED);
         assert_valid_cap(pool, cap);
         let fa = pool.hook_fee_a;
         let fb = pool.hook_fee_b;
@@ -333,6 +334,7 @@ module darbitex::pool {
     ) acquires Pool {
         assert_admin(admin);
         let pool = borrow_global_mut<Pool>(pool_addr);
+        assert!(!pool.locked, E_LOCKED);
         let fa = pool.protocol_fee_a;
         let fb = pool.protocol_fee_b;
         assert!(fa > 0 || fb > 0, E_NO_FEE);
@@ -428,8 +430,18 @@ module darbitex::pool {
             (0, extra_fee)
         };
 
+        // total_fee floors to 0 for amount_in < 10_000 while extra_fee is
+        // already floor-protected to 1, so a naive subtraction would
+        // underflow. Saturate to 0 instead — lp_fee is only consumed by the
+        // Swapped event, so the substitution is cosmetic.
         let total_fee = amount_in * SWAP_FEE_BPS / BPS_DENOM;
-        let lp_fee = total_fee - hook_fee - protocol_fee;
+        let lp_fee = if (total_fee > hook_fee + protocol_fee) {
+            total_fee - hook_fee - protocol_fee
+        } else { 0 };
+
+        // TWAP must accrue the prior interval at the pre-swap reserve ratio,
+        // so update it before mutating reserves.
+        update_twap(pool);
 
         // Internal reserves exclude accumulated fees.
         if (a_to_b) {
@@ -443,8 +455,6 @@ module darbitex::pool {
         pool.total_swaps = pool.total_swaps + 1;
         if (a_to_b) { pool.total_volume_a = pool.total_volume_a + (amount_in as u128); }
         else { pool.total_volume_b = pool.total_volume_b + (amount_in as u128); };
-
-        update_twap(pool);
 
         pool.locked = false;
 

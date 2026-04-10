@@ -345,6 +345,31 @@ module darbitex::pool_factory {
         event::emit(AuctionCancelled { pool_addr });
     }
 
+    /// Seller-initiated resale cancel. The original lister proves ownership
+    /// by presenting the same HookCap they listed with, and can pull the
+    /// listing at any time as long as no bid has arrived yet. Called by the
+    /// hook module; end users reach it through the hook's own entry point.
+    public fun seller_cancel_resale(
+        pool_addr: address,
+        seller: address,
+        cap: &HookCap,
+    ) acquires Factory {
+        assert!(exists<Factory>(@darbitex), E_NOT_INIT);
+        assert!(pool::hook_cap_pool(cap) == pool_addr, E_WRONG_POOL);
+
+        let factory = borrow_global_mut<Factory>(@darbitex);
+        assert!(table::contains(&factory.auctions, pool_addr), E_NO_AUCTION);
+        let auction = table::borrow(&factory.auctions, pool_addr);
+
+        assert!(auction.is_resale, E_AUCTION_ACTIVE);
+        assert!(!auction.has_bid, E_AUCTION_ACTIVE);
+        assert!(option::is_some(&auction.seller), E_AUCTION_ACTIVE);
+        assert!(*option::borrow(&auction.seller) == seller, E_AUCTION_ACTIVE);
+
+        table::remove(&mut factory.auctions, pool_addr);
+        event::emit(AuctionCancelled { pool_addr });
+    }
+
     // ===== Hook Resale =====
 
     /// List hook for resale. Called by the hook module via HookCap.
