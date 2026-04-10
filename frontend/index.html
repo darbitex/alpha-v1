@@ -1,0 +1,721 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="theme-color" content="#00ff88">
+  <meta name="mobile-web-app-capable" content="yes">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="/style.css">
+  <title>Darbitex</title>
+  <script>
+  // ===== EARLY WALLET DISCOVERY (AIP-62 Aptos Wallet Standard) =====
+  // Must run before any page script AND before Petra/Martian/etc finish
+  // injecting, because extensions dispatch 'register-wallet' once on
+  // content_script load and we'll miss it if the listener isn't ready.
+  (function(){
+    var wallets = (window.__APTOS_WALLETS__ = window.__APTOS_WALLETS__ || new Map());
+    function register(w) {
+      if (w && w.name && !wallets.has(w.name)) {
+        wallets.set(w.name, w);
+        try { console.log('[wallet] registered:', w.name); } catch(e) {}
+      }
+      return function() { if (w && w.name) wallets.delete(w.name); };
+    }
+    var api = { register: register };
+    function handleRegister(event) {
+      try {
+        var cb = event && event.detail;
+        if (typeof cb === 'function') cb(api);
+        else if (cb && typeof cb.register === 'function') cb.register(api);
+      } catch(e) { console.warn('[wallet] handler error', e); }
+    }
+    // Listen for both Aptos-specific and generic wallet-standard events.
+    window.addEventListener('aptos:register-wallet', handleRegister);
+    window.addEventListener('wallet-standard:register-wallet', handleRegister);
+    // Dispatch app-ready on both namespaces so wallets that cache a
+    // listener and wait for this signal re-register themselves.
+    try { window.dispatchEvent(new CustomEvent('aptos:app-ready', { detail: api })); } catch(e) {}
+    try { window.dispatchEvent(new CustomEvent('wallet-standard:app-ready', { detail: api })); } catch(e) {}
+    // Re-dispatch once DOM is ready in case any wallet injects late.
+    document.addEventListener('DOMContentLoaded', function(){
+      try { window.dispatchEvent(new CustomEvent('aptos:app-ready', { detail: api })); } catch(e) {}
+      try { window.dispatchEvent(new CustomEvent('wallet-standard:app-ready', { detail: api })); } catch(e) {}
+      try { console.log('[wallet] total registered:', wallets.size, Array.from(wallets.keys())); } catch(e) {}
+    });
+  })();
+  </script>
+  <style>
+    section[data-route] { display: none; }
+    section[data-route].active { display: block; }
+    .manifesto { max-width: 480px; margin: 0 auto; padding: 20px; line-height: 1.8; }
+    .manifesto h1 { color: #00ff88; font-size: 28px; margin-bottom: 4px; }
+    .manifesto .tagline { color: #666; font-size: 13px; margin-bottom: 32px; }
+    .manifesto h2 { color: #00ff88; font-size: 16px; margin: 28px 0 12px; border-bottom: 1px solid #1a1a1a; padding-bottom: 8px; }
+    .manifesto p { color: #aaa; font-size: 13px; margin-bottom: 12px; }
+    .manifesto strong { color: #e0e0e0; }
+    .manifesto .highlight { color: #00ff88; }
+    .num-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin: 16px 0; }
+    .num-box { background: #111; border: 1px solid #1a1a1a; border-radius: 12px; padding: 16px; text-align: center; }
+    .num-box .big { font-size: 28px; font-weight: 700; color: #00ff88; }
+    .num-box .label { font-size: 11px; color: #666; margin-top: 4px; }
+    .arch-table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 12px; }
+    .arch-table td, .arch-table th { padding: 8px; border-bottom: 1px solid #1a1a1a; text-align: left; }
+    .arch-table th { color: #00ff88; font-weight: 600; }
+    .arch-table td:first-child { color: #e0e0e0; font-weight: 600; }
+    .arch-table td:last-child { color: #888; }
+    .links-row { display: flex; flex-wrap: wrap; gap: 8px; margin: 16px 0; }
+    .links-row a {
+      background: #111; border: 1px solid #1a1a1a; color: #00ff88;
+      padding: 8px 16px; border-radius: 8px; font-size: 12px;
+    }
+    .links-row a:hover { background: #1a1a1a; text-decoration: none; }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="logo"><svg class="mark" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21 Q 3 3 21 3"/><path d="M21 3 Q 21 11 14 11"/></svg>Darbitex<a class="social" href="https://x.com/Darbitex" target="_blank" rel="noopener" aria-label="X / Twitter"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg></a></div>
+    <button class="wallet-btn" id="walletBtn" onclick="connectWallet()">Connect</button>
+    <button class="wallet-btn" id="googleBtn" onclick="googleSignIn()" style="margin-left:4px;color:#ff8800;border-color:#ff8800">Google</button>
+  </div>
+
+  <nav class="nav">
+    <a href="/" data-route="/">Swap</a>
+    <a href="/pools/" data-route="/pools">Pools</a>
+    <a href="/portfolio/" data-route="/portfolio">Portfolio</a>
+    <a href="/protocol/" data-route="/protocol">Protocol</a>
+    <a href="/about/" data-route="/about">About</a>
+  </nav>
+
+  <!-- ============ SWAP ============ -->
+  <section data-route="/" data-title="Swap — Darbitex">
+    <div class="container">
+      <div class="card">
+        <div class="swap-label">You pay</div>
+        <div class="swap-row">
+          <input class="swap-input" id="inputAmount" type="number" placeholder="0.0" oninput="onQuote()">
+          <select class="token-select" id="tokenIn" onchange="onQuote()"></select>
+        </div>
+        <div class="swap-arrow">
+          <button onclick="flipTokens()">&#8645;</button>
+        </div>
+        <div class="swap-label">You receive</div>
+        <div class="swap-row">
+          <input class="swap-input" id="outputAmount" type="number" placeholder="0.0" readonly>
+          <select class="token-select" id="tokenOut" onchange="onQuote()"></select>
+        </div>
+        <div class="swap-info" id="swapInfo" style="display:none">
+          <div><span>Rate</span><span class="val" id="infoRate">-</span></div>
+          <div><span>Fee</span><span class="val">0.01% (1 BPS)</span></div>
+          <div><span>Pool</span><span class="val" id="infoPool">-</span></div>
+          <div><span>Min received</span><span class="val" id="infoMin">-</span></div>
+        </div>
+        <button class="btn btn-primary" id="swapBtn" disabled onclick="executeSwap()" style="margin-top:16px">Enter amount</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ POOLS ============ -->
+  <section data-route="/pools" data-title="Pools — Darbitex">
+    <div class="container">
+      <div class="pool-actions-top">
+        <button class="btn btn-primary" onclick="openCreatePool()">+ Create Pool</button>
+        <button class="btn btn-secondary" onclick="openStartAuction()">Start Hook Auction</button>
+      </div>
+      <div id="poolList"><div class="empty"><div class="icon">&#9881;</div>Loading pools...</div></div>
+    </div>
+  </section>
+
+  <!-- ============ PORTFOLIO ============ -->
+  <section data-route="/portfolio" data-title="Portfolio — Darbitex">
+    <div class="container">
+      <div id="positions"><div class="empty"><div class="icon">&#128176;</div>Connect wallet to view LP positions</div></div>
+    </div>
+  </section>
+
+  <!-- ============ PROTOCOL ============ -->
+  <section data-route="/protocol" data-title="Protocol — Darbitex">
+    <div class="container">
+      <div id="protoView"><div class="empty"><div class="icon">&#9881;</div>Loading protocol state...</div></div>
+    </div>
+  </section>
+
+  <!-- ============ ABOUT ============ -->
+  <section data-route="/about" data-title="About — Darbitex">
+    <div class="manifesto">
+      <h1>Darbitex</h1>
+      <div class="tagline">Permissionless Hooks DEX on Aptos — 0.01% fee</div>
+
+      <div class="num-grid">
+        <div class="num-box"><div class="big">1</div><div class="label">BPS FEE (0.01%)</div></div>
+        <div class="num-box"><div class="big">V4</div><div class="label">HOOKS</div></div>
+        <div class="num-box"><div class="big">6</div><div class="label">MODULES</div></div>
+        <div class="num-box"><div class="big">3/5</div><div class="label">MULTISIG</div></div>
+      </div>
+
+      <h2>What is Darbitex?</h2>
+      <p>Darbitex is an automated market maker on <strong>Aptos</strong> that introduces <span class="highlight">permissionless V4-style hooks</span> — allowing anyone to extend pool behavior without modifying the core protocol.</p>
+      <p>Pools are <strong>canonical</strong> (one per pair), <strong>unowned</strong> (no admin can rug), and <strong>composable</strong> by default. Every swap returns a FungibleAsset that any contract can use.</p>
+
+      <h2>Why 1 BPS?</h2>
+      <p>Total swap fee is <span class="highlight">0.01%</span> — that's <strong>30x cheaper</strong> than Uniswap (0.3%). Designed for high-frequency, high-volume trading where fee sensitivity matters.</p>
+      <p><strong>Fee split:</strong> 90% to LPs, 5% to hook operators, 5% to protocol. On plain pools: 90% LP, 10% protocol.</p>
+
+      <h2>Permissionless Hooks</h2>
+      <p>Anyone can deploy a Move module and attach it to a pool via <strong>public auction</strong>. Your hook runs on every swap — MEV capture, dynamic fees, limit orders, TWAMM, anything you can code.</p>
+      <p>Hooks are <strong>tradeable assets</strong>. Win the auction, build value, resell. This creates a market for pool-level innovation.</p>
+
+      <h2>Architecture</h2>
+      <table class="arch-table">
+        <tr><th>Module</th><th>Role</th></tr>
+        <tr><td>pool</td><td>Core AMM, swap, flash loans, TWAP oracle, fee accounting</td></tr>
+        <tr><td>pool_factory</td><td>Canonical pool creation, hook auctions, registry</td></tr>
+        <tr><td>hook_wrapper</td><td>Aggregator gateway for hooked pools</td></tr>
+        <tr><td>router</td><td>Multi-hop routing (plain + hooked mixed)</td></tr>
+        <tr><td>bridge</td><td>CPMM bridge for pegged assets</td></tr>
+        <tr><td>lp_coin</td><td>Per-pool LP tracking (soulbound)</td></tr>
+      </table>
+
+      <h2>Fully Decentralized</h2>
+      <p>Darbitex has <strong>no servers</strong>. Zero. The entire stack is decentralized:</p>
+      <p><strong>Smart contracts</strong> — on Aptos mainnet, immutable and permissionless.</p>
+      <p><strong>Frontend</strong> — hosted on <span class="highlight">Walrus</span> (decentralized storage on Sui). No AWS, no Vercel, no single point of failure. The UI you're using right now is served from Walrus quilts.</p>
+      <p><strong>Backend</strong> — there is none. All state lives on-chain. Pool data, reserves, LP balances, fee accounting — all queried directly from Aptos RPC. No indexer, no database, no API server to go down.</p>
+      <p>If every centralized server on earth goes offline, Darbitex keeps running. That's the point.</p>
+
+      <h2>Governance</h2>
+      <p>Darbitex is published from a <strong>3-of-5 multisig</strong>. Package upgrades and admin actions (pause, force-remove hook, protocol fee withdrawal) both require the same 3-of-5 threshold — no single key can rewrite the contract or touch reserves.</p>
+      <p>Treasury is a separate <strong>2-of-3 multisig</strong>, passive receiver of protocol fees. <code>ADMIN</code> and <code>TREASURY</code> addresses are hardcoded as Move constants — changing either requires a package upgrade, which itself needs the threshold.</p>
+      <p><strong>Why this matters:</strong> on Aptos, the package upgrade key can rewrite function bodies. A multisig admin without a multisig publisher is security theater. Darbitex V1 fixes that at the foundation.</p>
+
+      <h2>Audit</h2>
+      <p>One comprehensive audit run post-deploy, committed in the repo. <strong>Zero CRITICAL findings</strong> and <strong>zero fund-theft vectors</strong>. Non-critical issues (DoS and governance foot-guns) are tracked in the audit report and patched via on-chain upgrades through the multisig.</p>
+      <p>Key protections: reentrancy guards · internal reserve tracking · hot-potato flash receipts · hardcoded admin/treasury consts · witness-based hook claiming · overflow-safe TWAP · anti-snipe auctions.</p>
+      <p class="dim" style="font-size:12px;margin-top:8px">Audits are aids, not guarantees. Read the code.</p>
+
+      <h2>FungibleAsset Native</h2>
+      <p>100% <strong>FungibleAsset</strong> — no CoinStore legacy. Works with any Aptos FA token. Future-proof.</p>
+      <p>Zero external dependencies. Only <strong>AptosFramework</strong>.</p>
+
+      <h2>For Builders</h2>
+      <p><strong>Hook devs:</strong> Write a Move module, win the auction, earn 5% of swap fees.</p>
+      <p><strong>Aggregators:</strong> Call <code>pool_factory::get_all_pools()</code> → quote via <code>pool::get_amount_out()</code> → route through <code>pool::swap_entry()</code> or <code>hook_wrapper::swap_entry()</code>.</p>
+      <p><strong>LPs:</strong> Deposit into any pool. Earn 90% of fees automatically.</p>
+
+      <h2>Links</h2>
+      <div class="links-row">
+        <a href="https://explorer.aptoslabs.com/account/0x810693eb5e17185ee7d80e548a48edcb60be4b1d56d33f8c1be716d9fb422d2e/modules/code/pool_factory?network=mainnet" target="_blank">Explorer</a>
+        <a href="https://github.com/darbitex/alpha-v1" target="_blank">Source Code</a>
+      </div>
+
+      <div style="margin-top:40px;padding:20px;border-top:1px solid #1a1a1a;text-align:center;font-size:11px;color:#555;line-height:1.8">
+        <strong style="color:#ff8800">Disclaimer:</strong> Experimental DeFi software. <strong>Use at your own discretion.</strong> Do not deposit more than you can afford to lose.
+      </div>
+
+      <div style="margin-top:16px;text-align:center;font-size:11px;color:#333;">
+        Darbitex — Programmable liquidity, zero permission required.
+      </div>
+    </div>
+  </section>
+
+  <div class="footer">
+    <a href="https://explorer.aptoslabs.com/account/0x810693eb5e17185ee7d80e548a48edcb60be4b1d56d33f8c1be716d9fb422d2e/modules/code/pool_factory?network=mainnet" target="_blank">Darbitex</a> · Aptos Mainnet · 1 BPS fee
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <!-- Liquidity modal (used by pools section) -->
+  <div class="modal-bg" id="liqModal">
+    <div class="modal">
+      <button class="modal-close" onclick="closeLiqModal()">&#215;</button>
+      <h3 id="liqTitle">Add Liquidity</h3>
+      <input id="liqAmountA" type="number" placeholder="Amount Token A">
+      <input id="liqAmountB" type="number" placeholder="Amount Token B">
+      <button class="btn btn-primary" id="liqBtn" onclick="executeLiquidity()">Add Liquidity</button>
+    </div>
+  </div>
+
+  <!-- Create Pool modal -->
+  <div class="modal-bg" id="createPoolModal">
+    <div class="modal">
+      <button class="modal-close" onclick="closeModal('createPoolModal')">&#215;</button>
+      <h3>Create Canonical Pool</h3>
+      <label>Token A</label>
+      <select id="cpTokenA" onchange="cpOnTokenChange('A')"></select>
+      <input id="cpCustomA" type="text" placeholder="0x... custom metadata address" style="display:none">
+      <input id="cpAmountA" type="number" placeholder="Amount A" step="any">
+      <label>Token B</label>
+      <select id="cpTokenB" onchange="cpOnTokenChange('B')"></select>
+      <input id="cpCustomB" type="text" placeholder="0x... custom metadata address" style="display:none">
+      <input id="cpAmountB" type="number" placeholder="Amount B" step="any">
+      <div class="modal-note">
+        Canonical: 1 pool per pair. Metadata order auto-sorted bytewise.
+        sqrt(rawA × rawB) must be &gt; 1000 or TX reverts.
+        Custom token: paste FA metadata address, decimals fetched on-chain.
+      </div>
+      <div id="cpStatus" class="modal-status"></div>
+      <button class="btn btn-primary" onclick="executeCreatePool()">Create Pool</button>
+    </div>
+  </div>
+
+  <!-- Start Auction modal -->
+  <div class="modal-bg" id="auctionModal">
+    <div class="modal">
+      <button class="modal-close" onclick="closeModal('auctionModal')">&#215;</button>
+      <h3>Start Hook Auction</h3>
+      <label>Pool</label>
+      <select id="auPool"></select>
+      <label>Hook address (your published hook module)</label>
+      <input id="auHook" type="text" placeholder="0x...">
+      <label>Bid (APT, min 100)</label>
+      <input id="auBid" type="number" placeholder="100" value="100" step="any">
+      <label>Duration (hours, 24–720)</label>
+      <input id="auDur" type="number" placeholder="24" value="24" min="24" max="720">
+      <div class="modal-note">
+        Bid escrowed as APT. Refunded if outbid. Paid to treasury on finalize.
+        Min bid 100 APT. Anti-snipe: bids in last 10 min extend by 10 min.
+      </div>
+      <div id="auStatus" class="modal-status"></div>
+      <button class="btn btn-primary" onclick="executeStartAuction()">Start Auction</button>
+    </div>
+  </div>
+
+  <script src="/app.js"></script>
+  <script>
+  // ===== SWAP =====
+  function populateSelects() {
+    const opts = Object.entries(TOKENS).map(([s]) => `<option value="${s}">${s}</option>`).join('');
+    document.getElementById('tokenIn').innerHTML = opts;
+    document.getElementById('tokenOut').innerHTML = opts;
+    document.getElementById('tokenOut').selectedIndex = 1;
+  }
+  function flipTokens() {
+    const a = document.getElementById('tokenIn'), b = document.getElementById('tokenOut');
+    const t = a.value; a.value = b.value; b.value = t;
+    onQuote();
+  }
+  async function onQuote() {
+    const btn = document.getElementById('swapBtn');
+    const info = document.getElementById('swapInfo');
+    const outEl = document.getElementById('outputAmount');
+    const amount = parseFloat(document.getElementById('inputAmount').value);
+    if (!amount || amount <= 0) { btn.disabled = true; btn.textContent = 'Enter amount'; info.style.display = 'none'; outEl.value = ''; return; }
+    const inSym = document.getElementById('tokenIn').value;
+    const outSym = document.getElementById('tokenOut').value;
+    if (inSym === outSym) { btn.disabled = true; btn.textContent = 'Select different tokens'; return; }
+    const tIn = TOKENS[inSym], tOut = TOKENS[outSym];
+    const pool = findPool(tIn.meta, tOut.meta);
+    if (!pool) { btn.disabled = true; btn.textContent = 'No pool'; info.style.display = 'none'; return; }
+    const rawIn = toRaw(amount, tIn.decimals);
+    try {
+      const res = await viewFn('pool::get_amount_out', [], [pool.addr, rawIn.toString(), pool.meta_a.replace(/^0x0+/,'0x') === tIn.meta.replace(/^0x0+/,'0x')]);
+      const rawOut = Number(res[0] || res);
+      const amtOut = fromRaw(rawOut, tOut.decimals);
+      outEl.value = amtOut.toFixed(6);
+      info.style.display = 'block';
+      document.getElementById('infoRate').textContent = `1 ${inSym} = ${(amtOut/amount).toFixed(6)} ${outSym}`;
+      document.getElementById('infoPool').textContent = pool.addr.slice(0,10) + '...' + (pool.hooked ? ' [hooked]' : '');
+      document.getElementById('infoMin').textContent = (amtOut*(1-SLIPPAGE)).toFixed(6) + ' ' + outSym;
+      btn.disabled = !wallet; btn.textContent = wallet ? 'Swap' : 'Connect wallet';
+    } catch(e) { btn.disabled = true; btn.textContent = 'Quote error'; }
+  }
+  async function executeSwap() {
+    const inSym = document.getElementById('tokenIn').value;
+    const outSym = document.getElementById('tokenOut').value;
+    const tIn = TOKENS[inSym], tOut = TOKENS[outSym];
+    const amount = parseFloat(document.getElementById('inputAmount').value);
+    const pool = findPool(tIn.meta, tOut.meta);
+    if (!pool) return;
+    const rawIn = toRaw(amount, tIn.decimals);
+    const rawOutDisplay = parseFloat(document.getElementById('outputAmount').value);
+    const minOut = toRaw(rawOutDisplay * (1-SLIPPAGE), tOut.decimals);
+    const mod = pool.hooked ? 'hook_wrapper' : 'pool';
+    const tx = await submitTx(mod, 'swap_entry', [pool.addr, tIn.meta, rawIn.toString(), minOut.toString()]);
+    if (tx) setTimeout(() => { loadPools().then(onQuote); }, 3000);
+  }
+
+  // ===== CREATE POOL MODAL =====
+  function closeModal(id) { document.getElementById(id).classList.remove('show'); }
+
+  function populateCreatePoolSelects() {
+    const opts = Object.entries(TOKENS).map(([s]) => `<option value="${s}">${s}</option>`).join('')
+      + '<option value="__custom__">Custom...</option>';
+    document.getElementById('cpTokenA').innerHTML = opts;
+    document.getElementById('cpTokenB').innerHTML = opts;
+    document.getElementById('cpTokenB').selectedIndex = 1;
+  }
+
+  function cpOnTokenChange(which) {
+    const sel = document.getElementById('cpToken' + which);
+    document.getElementById('cpCustom' + which).style.display =
+      sel.value === '__custom__' ? '' : 'none';
+  }
+
+  async function fetchTokenMeta(metaAddr) {
+    const res = await fetch(`${RPC}/accounts/${metaAddr}/resource/0x1::fungible_asset::Metadata`);
+    if (!res.ok) throw new Error('Not a valid FA metadata at ' + metaAddr.slice(0, 10));
+    const d = await res.json();
+    return {
+      meta: metaAddr,
+      symbol: d.data.symbol,
+      decimals: parseInt(d.data.decimals),
+    };
+  }
+
+  async function resolveTokenSelection(which) {
+    const sel = document.getElementById('cpToken' + which).value;
+    if (sel === '__custom__') {
+      const addr = document.getElementById('cpCustom' + which).value.trim();
+      if (!/^0x[0-9a-fA-F]+$/.test(addr)) throw new Error('Token ' + which + ': invalid metadata address');
+      return await fetchTokenMeta(addr);
+    }
+    return TOKENS[sel];
+  }
+
+  // Bytewise compare two addresses — matches Move bcs::to_bytes + vector<u8> < order
+  function metaCmp(x, y) {
+    const norm = s => s.replace(/^0x/i, '').padStart(64, '0').toLowerCase();
+    const nx = norm(x), ny = norm(y);
+    return nx < ny ? -1 : nx > ny ? 1 : 0;
+  }
+
+  function openCreatePool() {
+    populateCreatePoolSelects();
+    ['A','B'].forEach(w => {
+      document.getElementById('cpAmount' + w).value = '';
+      document.getElementById('cpCustom' + w).value = '';
+      document.getElementById('cpCustom' + w).style.display = 'none';
+    });
+    document.getElementById('cpStatus').textContent = '';
+    document.getElementById('cpStatus').classList.remove('error');
+    document.getElementById('createPoolModal').classList.add('show');
+  }
+
+  async function executeCreatePool() {
+    const status = document.getElementById('cpStatus');
+    status.classList.remove('error');
+    try {
+      if (!wallet) throw new Error('Connect wallet first');
+      status.textContent = 'Resolving tokens...';
+      let tA = await resolveTokenSelection('A');
+      let tB = await resolveTokenSelection('B');
+      if (tA.meta.toLowerCase() === tB.meta.toLowerCase()) throw new Error('Tokens must differ');
+
+      const amtA = parseFloat(document.getElementById('cpAmountA').value);
+      const amtB = parseFloat(document.getElementById('cpAmountB').value);
+      if (!amtA || !amtB || amtA <= 0 || amtB <= 0) throw new Error('Amounts must be > 0');
+
+      let rawA = toRaw(amtA, tA.decimals);
+      let rawB = toRaw(amtB, tB.decimals);
+
+      // Auto-sort metadata_a < metadata_b bytewise (contract enforces this)
+      if (metaCmp(tA.meta, tB.meta) > 0) {
+        [tA, tB] = [tB, tA];
+        [rawA, rawB] = [rawB, rawA];
+      }
+
+      // initial_lp = floor(sqrt(rawA * rawB)) must be > MINIMUM_LIQUIDITY (1000)
+      const lpInit = Math.floor(Math.sqrt(rawA * rawB));
+      if (lpInit <= 1000) throw new Error(`Too small: sqrt(${rawA}×${rawB})=${lpInit}, need > 1000`);
+
+      status.textContent = 'Checking for existing pool...';
+      const addrRes = await viewFn('pool_factory::canonical_pool_address', [], [tA.meta, tB.meta]);
+      const canonicalAddr = (addrRes[0] || addrRes || '').toString();
+      const allRes = await viewFn('pool_factory::get_all_pools', [], []);
+      const allPools = allRes[0] || allRes || [];
+      if (allPools.map(a => a.toLowerCase()).includes(canonicalAddr.toLowerCase())) {
+        throw new Error('Pool already exists: ' + canonicalAddr.slice(0, 14) + '...');
+      }
+
+      status.textContent = 'Submitting transaction...';
+      const tx = await submitTx('pool_factory', 'create_canonical_pool', [
+        tA.meta, tB.meta, rawA.toString(), rawB.toString(),
+      ]);
+      if (tx) {
+        status.textContent = '✓ Pool created. Refreshing...';
+        setTimeout(() => { closeModal('createPoolModal'); loadPools().then(renderPools); }, 3500);
+      } else {
+        status.textContent = '';
+      }
+    } catch(e) {
+      status.classList.add('error');
+      status.textContent = '✗ ' + (e.message || e);
+    }
+  }
+
+  // ===== START AUCTION MODAL =====
+  async function openStartAuction() {
+    await loadPools();
+    const sel = document.getElementById('auPool');
+    if (!pools.length) {
+      sel.innerHTML = '<option value="">No pools available</option>';
+    } else {
+      sel.innerHTML = pools.map(p => {
+        const sA = p.token_a.symbol, sB = p.token_b.symbol;
+        const tag = p.hooked ? ' [HOOKED]' : '';
+        return `<option value="${p.meta_a}|${p.meta_b}">${sA}/${sB} — ${p.addr.slice(0,10)}...${tag}</option>`;
+      }).join('');
+    }
+    document.getElementById('auHook').value = wallet || '';
+    document.getElementById('auStatus').textContent = '';
+    document.getElementById('auStatus').classList.remove('error');
+    document.getElementById('auctionModal').classList.add('show');
+  }
+
+  async function executeStartAuction() {
+    const status = document.getElementById('auStatus');
+    status.classList.remove('error');
+    try {
+      if (!wallet) throw new Error('Connect wallet first');
+      const poolSel = document.getElementById('auPool').value;
+      if (!poolSel) throw new Error('Select a pool');
+      const [metaA, metaB] = poolSel.split('|');
+      const hook = document.getElementById('auHook').value.trim();
+      if (!/^0x[0-9a-fA-F]+$/.test(hook)) throw new Error('Hook address must be 0x...');
+      const bidApt = parseFloat(document.getElementById('auBid').value);
+      if (!bidApt || bidApt < 100) throw new Error('Bid must be ≥ 100 APT');
+      const hours = parseInt(document.getElementById('auDur').value);
+      if (!hours || hours < 24 || hours > 720) throw new Error('Duration 24–720 hours');
+
+      const bidRaw = Math.floor(bidApt * 1e8);
+      const durSecs = hours * 3600;
+
+      status.textContent = 'Submitting transaction...';
+      const tx = await submitTx('pool_factory', 'start_auction', [
+        metaA, metaB, hook, bidRaw.toString(), durSecs.toString(),
+      ]);
+      if (tx) {
+        status.textContent = '✓ Auction started. Refreshing...';
+        setTimeout(() => { closeModal('auctionModal'); loadPools().then(renderPools); }, 3500);
+      }
+    } catch(e) {
+      status.classList.add('error');
+      status.textContent = '✗ ' + (e.message || e);
+    }
+  }
+
+  // ===== POOLS =====
+  let liqPool = null, liqMode = 'add';
+  function renderPools() {
+    const el = document.getElementById('poolList');
+    if (!pools.length) { el.innerHTML = '<div class="empty"><div class="icon">&#128167;</div>No pools yet</div>'; return; }
+    el.innerHTML = pools.map(p => {
+      const sA = p.token_a.symbol, sB = p.token_b.symbol;
+      const dA = p.token_a.decimals, dB = p.token_b.decimals;
+      return `
+      <div class="card">
+        <div class="pool-pair">${sA}/${sB}
+          <span class="badge badge-fee">1 BPS</span>
+          ${p.hooked ? '<span class="badge badge-hook">HOOKED</span>' : ''}
+          ${p.paused ? '<span class="badge badge-pause">PAUSED</span>' : ''}
+        </div>
+        <div class="pool-grid">
+          <div><span class="label">${sA}</span><br><span class="value">${fromRaw(p.reserve_a, dA).toFixed(4)}</span></div>
+          <div><span class="label">${sB}</span><br><span class="value">${fromRaw(p.reserve_b, dB).toFixed(4)}</span></div>
+          <div><span class="label">LP Supply</span><br><span class="value">${Number(p.lp_supply).toLocaleString()}</span></div>
+          <div><span class="label">Address</span><br><span class="value" style="font-size:10px">${p.addr.slice(0,10)}...</span></div>
+        </div>
+        <div class="pool-actions">
+          <button class="btn-secondary" onclick="openAdd('${p.addr}')">+ Add</button>
+          <button class="btn-secondary" onclick="openRemove('${p.addr}')">- Remove</button>
+          <button class="btn-secondary" onclick="navigate('/')">Swap</button>
+        </div>
+      </div>`;
+    }).join('');
+  }
+  function openAdd(addr) {
+    liqPool = pools.find(p => p.addr === addr); liqMode = 'add';
+    document.getElementById('liqTitle').textContent = `Add ${liqPool.token_a.symbol}/${liqPool.token_b.symbol}`;
+    document.getElementById('liqBtn').textContent = 'Add Liquidity';
+    document.getElementById('liqAmountA').placeholder = `Amount ${liqPool.token_a.symbol}`;
+    document.getElementById('liqAmountB').placeholder = `Amount ${liqPool.token_b.symbol}`;
+    document.getElementById('liqAmountB').style.display = '';
+    document.getElementById('liqAmountA').value = '';
+    document.getElementById('liqAmountB').value = '';
+    document.getElementById('liqModal').classList.add('show');
+  }
+  function openRemove(addr) {
+    liqPool = pools.find(p => p.addr === addr); liqMode = 'remove';
+    document.getElementById('liqTitle').textContent = `Remove ${liqPool.token_a.symbol}/${liqPool.token_b.symbol}`;
+    document.getElementById('liqBtn').textContent = 'Remove Liquidity';
+    document.getElementById('liqAmountA').placeholder = 'LP amount';
+    document.getElementById('liqAmountA').value = '';
+    document.getElementById('liqAmountB').style.display = 'none';
+    document.getElementById('liqModal').classList.add('show');
+  }
+  function closeLiqModal() {
+    document.getElementById('liqModal').classList.remove('show');
+    document.getElementById('liqAmountB').style.display = '';
+  }
+  async function executeLiquidity() {
+    if (!liqPool) return;
+    const mod = liqPool.hooked ? 'hook_wrapper' : 'pool';
+    if (liqMode === 'add') {
+      const a = toRaw(parseFloat(document.getElementById('liqAmountA').value), liqPool.token_a.decimals);
+      const b = toRaw(parseFloat(document.getElementById('liqAmountB').value), liqPool.token_b.decimals);
+      const tx = await submitTx(mod, 'add_liquidity', [liqPool.addr, a.toString(), b.toString()]);
+      if (tx) { closeLiqModal(); setTimeout(() => loadPools().then(renderPools), 3000); }
+    } else {
+      const lp = document.getElementById('liqAmountA').value;
+      const tx = await submitTx(mod, 'remove_liquidity', [liqPool.addr, lp]);
+      if (tx) { closeLiqModal(); setTimeout(() => loadPools().then(renderPools), 3000); }
+    }
+  }
+
+  // ===== PORTFOLIO =====
+  async function loadPortfolio() {
+    const el = document.getElementById('positions');
+    if (!wallet) {
+      el.innerHTML = '<div class="empty"><div class="icon">&#128176;</div>Connect wallet to view LP positions</div>';
+      return;
+    }
+    el.innerHTML = '<div class="empty"><div class="icon">&#9881;</div>Loading positions...</div>';
+    await loadPools();
+    let html = '';
+    for (const p of pools) {
+      try {
+        const bal = await viewFn('lp_coin::balance', [], [PACKAGE, p.addr, wallet]);
+        const lp = Number(bal[0] || bal || 0);
+        if (lp > 0) {
+          const sA = p.token_a.symbol, sB = p.token_b.symbol;
+          const dA = p.token_a.decimals, dB = p.token_b.decimals;
+          const share = (lp / Number(p.lp_supply) * 100).toFixed(2);
+          const valA = fromRaw(Number(p.reserve_a) * lp / Number(p.lp_supply), dA).toFixed(4);
+          const valB = fromRaw(Number(p.reserve_b) * lp / Number(p.lp_supply), dB).toFixed(4);
+          html += `
+          <div class="card">
+            <div class="pool-pair">${sA}/${sB} ${p.hooked ? '<span class="badge badge-hook">HOOKED</span>' : ''}</div>
+            <div class="pool-grid">
+              <div><span class="label">LP Balance</span><br><span class="value">${lp.toLocaleString()}</span></div>
+              <div><span class="label">Pool Share</span><br><span class="value">${share}%</span></div>
+              <div><span class="label">${sA} Value</span><br><span class="value">${valA}</span></div>
+              <div><span class="label">${sB} Value</span><br><span class="value">${valB}</span></div>
+            </div>
+          </div>`;
+        }
+      } catch(e) {}
+    }
+    el.innerHTML = html || '<div class="empty"><div class="icon">&#128167;</div>No LP positions found</div>';
+  }
+
+  // ===== PROTOCOL =====
+  async function loadProtocol() {
+    const el = document.getElementById('protoView');
+    el.innerHTML = '<div class="empty"><div class="icon">&#9881;</div>Loading protocol state...</div>';
+    try {
+      const cfgRes = await viewFn('pool::protocol_config', [], []);
+      const admin = cfgRes[0], treasury = cfgRes[1], factory = cfgRes[2];
+      await loadPools();
+      const hooked = pools.filter(p => p.hooked).length;
+      const paused = pools.filter(p => p.paused).length;
+
+      const addr = (a, label) => `<a href="https://explorer.aptoslabs.com/account/${a}?network=mainnet" target="_blank" rel="noopener">${label || (a.slice(0,10) + '...' + a.slice(-6))}</a>`;
+
+      let html = `
+      <div class="card">
+        <div class="pool-pair">Protocol</div>
+        <div class="pool-grid">
+          <div><span class="label">Package</span><br><span class="value" style="font-size:10px">${addr(PACKAGE)}</span></div>
+          <div><span class="label">Factory</span><br><span class="value" style="font-size:10px">${addr(factory)}</span></div>
+          <div><span class="label">Admin (3/5 msig)</span><br><span class="value" style="font-size:10px">${addr(admin)}</span></div>
+          <div><span class="label">Treasury (2/3 msig)</span><br><span class="value" style="font-size:10px">${addr(treasury)}</span></div>
+          <div><span class="label">Pools</span><br><span class="value">${pools.length}</span></div>
+          <div><span class="label">Hooked</span><br><span class="value">${hooked}</span></div>
+          <div><span class="label">Paused</span><br><span class="value">${paused}</span></div>
+          <div><span class="label">Fee</span><br><span class="value">1 BPS</span></div>
+        </div>
+      </div>`;
+
+      for (const p of pools) {
+        let pf = [0,0,0,0];
+        try {
+          const r = await viewFn('pool::pending_fees', [], [p.addr]);
+          pf = [Number(r[0]), Number(r[1]), Number(r[2]), Number(r[3])];
+        } catch {}
+        const sA = p.token_a.symbol, sB = p.token_b.symbol;
+        const dA = p.token_a.decimals, dB = p.token_b.decimals;
+        html += `
+        <div class="card">
+          <div class="pool-pair">${sA}/${sB}
+            ${p.hooked ? '<span class="badge badge-hook">HOOKED</span>' : ''}
+            ${p.paused ? '<span class="badge badge-pause">PAUSED</span>' : ''}
+          </div>
+          <div class="pool-grid">
+            <div><span class="label">Address</span><br><span class="value" style="font-size:10px">${addr(p.addr)}</span></div>
+            <div><span class="label">LP Supply</span><br><span class="value">${Number(p.lp_supply).toLocaleString()}</span></div>
+            <div><span class="label">Reserve ${sA}</span><br><span class="value">${fromRaw(p.reserve_a, dA).toFixed(4)}</span></div>
+            <div><span class="label">Reserve ${sB}</span><br><span class="value">${fromRaw(p.reserve_b, dB).toFixed(4)}</span></div>
+            <div><span class="label">LP fees ${sA}</span><br><span class="value">${fromRaw(pf[0], dA).toFixed(6)}</span></div>
+            <div><span class="label">LP fees ${sB}</span><br><span class="value">${fromRaw(pf[1], dB).toFixed(6)}</span></div>
+            <div><span class="label">Protocol fees ${sA}</span><br><span class="value">${fromRaw(pf[2], dA).toFixed(6)}</span></div>
+            <div><span class="label">Protocol fees ${sB}</span><br><span class="value">${fromRaw(pf[3], dB).toFixed(6)}</span></div>
+          </div>
+        </div>`;
+      }
+      el.innerHTML = html;
+    } catch(e) {
+      el.innerHTML = '<div class="empty"><div class="icon">&#9888;</div>Failed to load protocol state: ' + (e.message || e) + '</div>';
+    }
+  }
+
+  // ===== ROUTER =====
+  let _swapInited = false;
+  const ROUTES = {
+    '/':          async () => { if (!_swapInited) { _swapInited = true; await loadPools(); populateSelects(); } else { onQuote(); } },
+    '/pools':     async () => { await loadPools(); renderPools(); },
+    '/portfolio': async () => { loadPortfolio(); },
+    '/protocol':  async () => { loadProtocol(); },
+    '/about':     async () => {},
+  };
+
+  function normalize(path) {
+    let p = (path || '/').replace(/\/+$/, '') || '/';
+    if (p === '/swap') p = '/';
+    if (!ROUTES[p]) p = '/';
+    return p;
+  }
+
+  async function navigate(path, push = true) {
+    const p = normalize(path);
+    document.querySelectorAll('section[data-route]').forEach(s => s.classList.remove('active'));
+    const sec = document.querySelector(`section[data-route="${p}"]`);
+    sec.classList.add('active');
+    document.title = sec.dataset.title;
+    document.querySelectorAll('.nav a').forEach(a => {
+      a.classList.toggle('active', normalize(a.getAttribute('href')) === p);
+    });
+    if (push) {
+      const url = p === '/' ? '/' : p + '/';
+      history.pushState({}, '', url);
+    }
+    window.scrollTo(0, 0);
+    try { await ROUTES[p](); } catch(e) { console.error('route init error', p, e); }
+  }
+  window.navigate = navigate;
+
+  // Intercept clicks on internal links
+  document.addEventListener('click', e => {
+    const a = e.target.closest('a[href]');
+    if (!a) return;
+    const href = a.getAttribute('href');
+    if (!href || href.startsWith('http') || href.startsWith('//') || href.startsWith('mailto:') || a.target === '_blank') return;
+    if (!href.startsWith('/')) return;
+    e.preventDefault();
+    navigate(href, true);
+  });
+  window.addEventListener('popstate', () => navigate(location.pathname, false));
+
+  // Refresh active section after wallet connect/disconnect
+  const _origConnect = window.connectWallet;
+  window.connectWallet = async function() {
+    await _origConnect();
+    const active = document.querySelector('section[data-route].active');
+    if (active && ROUTES[active.dataset.route]) ROUTES[active.dataset.route]();
+  };
+
+  // Initial route — don't push, render in place
+  navigate(location.pathname, false);
+  </script>
+</body>
+</html>

@@ -1,0 +1,59 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0a0a0a"/>
+      <stop offset="100%" stop-color="#0f1a14"/>
+    </linearGradient>
+    <filter id="glow">
+      <feGaussianBlur stdDeviation="8" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+  <rect width="1200" height="630" fill="url(#bg)"/>
+
+  <!-- Subtle grid -->
+  <g stroke="#1a1a1a" stroke-width="1" opacity="0.4">
+    <line x1="0" y1="100" x2="1200" y2="100"/>
+    <line x1="0" y1="315" x2="1200" y2="315"/>
+    <line x1="0" y1="530" x2="1200" y2="530"/>
+    <line x1="300" y1="0" x2="300" y2="630"/>
+    <line x1="600" y1="0" x2="600" y2="630"/>
+    <line x1="900" y1="0" x2="900" y2="630"/>
+  </g>
+
+  <!-- Hook icon -->
+  <g transform="translate(90 170) scale(12)" fill="none" stroke="#00ff88" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" filter="url(#glow)">
+    <path d="M3 21 Q 3 3 21 3"/>
+    <path d="M21 3 Q 21 11 14 11"/>
+  </g>
+
+  <!-- Wordmark + tagline -->
+  <text x="430" y="260" font-family="monospace, 'Courier New'" font-size="120" font-weight="700" fill="#00ff88" letter-spacing="2">Darbitex</text>
+  <text x="430" y="320" font-family="monospace, 'Courier New'" font-size="30" fill="#aaa">Permissionless V4 Hooks DEX on Aptos</text>
+  <text x="430" y="365" font-family="monospace, 'Courier New'" font-size="22" fill="#666">0.01% fee &#183; Canonical &#183; Unowned &#183; Composable</text>
+
+  <!-- Stat boxes -->
+  <g font-family="monospace, 'Courier New'">
+    <rect x="90" y="470" width="240" height="100" rx="12" fill="#0a0a0a" stroke="#1a1a1a"/>
+    <text x="210" y="515" text-anchor="middle" font-size="42" font-weight="700" fill="#00ff88">1 BPS</text>
+    <text x="210" y="550" text-anchor="middle" font-size="16" fill="#666">SWAP FEE</text>
+
+    <rect x="345" y="470" width="240" height="100" rx="12" fill="#0a0a0a" stroke="#1a1a1a"/>
+    <text x="465" y="515" text-anchor="middle" font-size="42" font-weight="700" fill="#00ff88">V4</text>
+    <text x="465" y="550" text-anchor="middle" font-size="16" fill="#666">HOOKS</text>
+
+    <rect x="600" y="470" width="240" height="100" rx="12" fill="#0a0a0a" stroke="#1a1a1a"/>
+    <text x="720" y="515" text-anchor="middle" font-size="42" font-weight="700" fill="#00ff88">6</text>
+    <text x="720" y="550" text-anchor="middle" font-size="16" fill="#666">MODULES</text>
+
+    <rect x="855" y="470" width="240" height="100" rx="12" fill="#0a0a0a" stroke="#1a1a1a"/>
+    <text x="975" y="515" text-anchor="middle" font-size="42" font-weight="700" fill="#00ff88">41</text>
+    <text x="975" y="550" text-anchor="middle" font-size="16" fill="#666">AUDIT FIXES</text>
+  </g>
+
+  <!-- URL in corner -->
+  <text x="1110" y="85" text-anchor="end" font-family="monospace, 'Courier New'" font-size="22" fill="#00ff88">darbitex.wal.app</text>
+</svg>

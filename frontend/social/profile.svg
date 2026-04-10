@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" fill="#0a0a0a"/>
+  <g transform="translate(156 80) scale(8.33)" fill="none" stroke="#00ff88" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M3 21 Q 3 3 21 3"/>
+    <path d="M21 3 Q 21 11 14 11"/>
+  </g>
+  <text x="256" y="400" text-anchor="middle" font-family="monospace, 'Courier New'" font-size="64" font-weight="700" fill="#00ff88" letter-spacing="2">Darbitex</text>
+  <text x="256" y="450" text-anchor="middle" font-family="monospace, 'Courier New'" font-size="22" fill="#666">PERMISSIONLESS HOOKS</text>
+</svg>

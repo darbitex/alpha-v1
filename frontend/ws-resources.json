@@ -1,0 +1,22 @@
+{
+  "headers": {
+    "/**": {
+      "Cache-Control": "public, max-age=3600"
+    },
+    "/app.js": {
+      "Content-Type": "application/javascript"
+    },
+    "/style.css": {
+      "Content-Type": "text/css"
+    },
+    "/sw.js": {
+      "Content-Type": "application/javascript",
+      "Service-Worker-Allowed": "/"
+    }
+  },
+  "routes": {
+    "/*": "/index.html"
+  },
+  "site_name": "Darbitex",
+  "object_id": "0x050df98fbc08b6c4e5d8d41dc75835c2a2d491cc1c9687d8782a2b513a217718"
+}
