@@ -9,6 +9,44 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <link rel="manifest" href="/manifest.json" />
     <title>Darbitex</title>
+    <script>
+      // Walrus portal cold-start mitigation: the first visitor to a Cloudflare
+      // POP can hit 503 on some module chunks while the portal fetches blobs
+      // from storage nodes. Auto-reload a few times to warm the cache, then
+      // surface a readable fallback if it really cannot load.
+      (function () {
+        var KEY = "dbx_boot_retry";
+        var MAX = 5;
+        var done = false;
+        function fail(reason) {
+          if (done) return;
+          var n = parseInt(sessionStorage.getItem(KEY) || "0", 10);
+          if (n < MAX) {
+            sessionStorage.setItem(KEY, String(n + 1));
+            setTimeout(function () { location.reload(); }, 700);
+          } else {
+            done = true;
+            document.documentElement.innerHTML =
+              '<body style="margin:0;padding:40px;background:#0a0a0a;color:#00ff88;font:14px/1.6 ui-monospace,monospace;min-height:100vh">' +
+              '<h1 style="font-size:18px;margin-bottom:12px">Darbitex — cold start</h1>' +
+              '<p style="color:#e0e0e0">Walrus portal is still warming this edge. Try again in 30–60 seconds.</p>' +
+              '<p style="color:#888;font-size:12px;margin-top:16px">Reason: ' + reason + '</p>' +
+              '<p style="margin-top:16px"><a href="/" style="color:#00ff88">Retry manually</a></p></body>';
+          }
+        }
+        window.addEventListener("error", function (e) {
+          var t = e && e.target;
+          if (t && (t.tagName === "SCRIPT" || t.tagName === "LINK")) {
+            fail("chunk load failed: " + (t.src || t.href || "").split("/").pop());
+          }
+        }, true);
+        // Reset retry counter once React has mounted.
+        window.__dbx_mounted = function () {
+          sessionStorage.removeItem(KEY);
+          done = true;
+        };
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

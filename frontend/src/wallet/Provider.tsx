@@ -6,8 +6,18 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   return (
     <AptosWalletAdapterProvider
       autoConnect
-      optInWallets={["Petra", "Continue with Google", "OKX Wallet", "Nightly"]}
-      dappConfig={{ network: Network.MAINNET }}
+      optInWallets={[
+        "Petra",
+        "Continue with Google",
+        "Continue with Apple",
+        "Petra Web",
+        "OKX Wallet",
+        "Nightly",
+      ]}
+      dappConfig={{
+        network: Network.MAINNET,
+        aptosConnect: { dappName: "Darbitex" },
+      }}
       onError={(err) => {
         console.error("wallet error", err);
       }}

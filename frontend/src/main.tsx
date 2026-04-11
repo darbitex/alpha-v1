@@ -10,3 +10,7 @@ createRoot(root).render(
     <App />
   </StrictMode>,
 );
+
+// Signal to the cold-start retry bootstrap that React mounted successfully
+// so it clears its retry counter.
+(window as unknown as { __dbx_mounted?: () => void }).__dbx_mounted?.();
