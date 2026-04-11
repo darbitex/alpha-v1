@@ -17,6 +17,7 @@ module darbitex::tests {
     use darbitex::lp_coin;
     use darbitex::hook_wrapper;
     use darbitex::bridge;
+    use darbitex::meta_router;
 
     // ===== Test Constants =====
     const POOL_AMOUNT: u64 = 1_000_000_000_000; // 10,000 tokens (8 dec)
@@ -317,4 +318,135 @@ module darbitex::tests {
         let count = pool_factory::pool_count();
         assert!(count == 1, 2);
     }
+
+    // =========================================================
+    //                    META ROUTER TESTS
+    // =========================================================
+
+    #[test(darbitex = @darbitex, framework = @0x1)]
+    /// quote_direct + best_route return the same direct-pool output when a
+    /// canonical pool exists for the pair.
+    fun test_meta_router_quote_direct(darbitex: &signer, framework: &signer) {
+        let (meta_a, meta_b) = setup(framework, darbitex);
+        let pool_addr = create_pool(darbitex, meta_a, meta_b, POOL_AMOUNT);
+
+        let qd = meta_router::quote_direct(meta_a, meta_b, 1_000_000);
+        assert!(qd > 0, 1);
+
+        let (p1, p2, out) = meta_router::best_route(meta_a, meta_b, 1_000_000);
+        assert!(p1 == pool_addr, 2);
+        assert!(p2 == @0x0, 3);          // direct route — no second hop
+        assert!(out == qd, 4);            // best route output matches quote_direct
+
+        // Cross-check: best_route output equals pool::get_amount_out
+        let pool_quote = pool::get_amount_out(pool_addr, 1_000_000, true);
+        assert!(out == pool_quote, 5);
+    }
+
+    #[test(darbitex = @darbitex, framework = @0x1)]
+    /// best_route returns (@0x0, @0x0, 0) when no pool exists for the pair
+    /// and no bridge token can connect them. Pure DoS-safety check.
+    fun test_meta_router_no_route(darbitex: &signer, framework: &signer) {
+        let (meta_a, meta_b) = setup(framework, darbitex);
+        // Intentionally do NOT create any pool.
+
+        let (p1, p2, out) = meta_router::best_route(meta_a, meta_b, 1_000_000);
+        assert!(p1 == @0x0, 1);
+        assert!(p2 == @0x0, 2);
+        assert!(out == 0, 3);
+    }
+
+    #[test(darbitex = @darbitex, framework = @0x1)]
+    /// best_route with zero amount or same-token request returns empty.
+    fun test_meta_router_degenerate(darbitex: &signer, framework: &signer) {
+        let (meta_a, meta_b) = setup(framework, darbitex);
+        create_pool(darbitex, meta_a, meta_b, POOL_AMOUNT);
+
+        let (_, _, zero_amt_out) = meta_router::best_route(meta_a, meta_b, 0);
+        assert!(zero_amt_out == 0, 1);
+
+        let (_, _, same_tok_out) = meta_router::best_route(meta_a, meta_a, 1_000_000);
+        assert!(same_tok_out == 0, 2);
+    }
+
+    #[test(darbitex = @darbitex, user = @0x100, framework = @0x1)]
+    /// End-to-end: swap_best through a direct pool. Verifies user balance
+    /// transitions match pool::swap_entry done via the entry helper.
+    fun test_meta_router_swap_direct(
+        darbitex: &signer, user: &signer, framework: &signer,
+    ) acquires TestMints {
+        let (meta_a, meta_b) = setup(framework, darbitex);
+        let pool_addr = create_pool(darbitex, meta_a, meta_b, POOL_AMOUNT);
+
+        account::create_account_for_test(@0x100);
+        give_tokens(@0x100, 2_000_000);
+
+        let (_, _, expected) = meta_router::best_route(meta_a, meta_b, 1_000_000);
+        assert!(expected > 0, 1);
+
+        let before_b = bal(@0x100, meta_b);
+        meta_router::swap_best(
+            user, meta_a, meta_b, 1_000_000,
+            expected,            // enforce full slippage tolerance (no room)
+            1_000_000_000,       // deadline far in the future
+        );
+        let after_b = bal(@0x100, meta_b);
+
+        assert!(after_b - before_b == expected, 2);
+
+        // Pool reserves moved in the correct direction
+        let (ra2, rb2) = pool::reserves(pool_addr);
+        assert!(ra2 > POOL_AMOUNT, 3);
+        assert!(rb2 < POOL_AMOUNT, 4);
+    }
+
+    #[test(darbitex = @darbitex, user = @0x100, framework = @0x1)]
+    #[expected_failure(abort_code = 5, location = darbitex::meta_router)]
+    /// swap_best enforces min_out slippage check — setting min_out above the
+    /// quoted output must abort E_SLIPPAGE.
+    fun test_meta_router_slippage_abort(
+        darbitex: &signer, user: &signer, framework: &signer,
+    ) acquires TestMints {
+        let (meta_a, meta_b) = setup(framework, darbitex);
+        create_pool(darbitex, meta_a, meta_b, POOL_AMOUNT);
+
+        account::create_account_for_test(@0x100);
+        give_tokens(@0x100, 2_000_000);
+
+        let (_, _, expected) = meta_router::best_route(meta_a, meta_b, 1_000_000);
+        meta_router::swap_best(
+            user, meta_a, meta_b, 1_000_000,
+            expected + 1,        // impossible min_out → must abort
+            1_000_000_000,
+        );
+    }
+
+    #[test(darbitex = @darbitex, user = @0x100, framework = @0x1)]
+    #[expected_failure(abort_code = 1, location = darbitex::meta_router)]
+    /// swap_best enforces deadline — passing a deadline in the past must
+    /// abort E_DEADLINE before any state change.
+    fun test_meta_router_deadline_abort(
+        darbitex: &signer, user: &signer, framework: &signer,
+    ) acquires TestMints {
+        let (meta_a, meta_b) = setup(framework, darbitex);
+        create_pool(darbitex, meta_a, meta_b, POOL_AMOUNT);
+
+        account::create_account_for_test(@0x100);
+        give_tokens(@0x100, 2_000_000);
+
+        // Fast-forward time so the deadline is already in the past.
+        timestamp::fast_forward_seconds(1000);
+
+        meta_router::swap_best(
+            user, meta_a, meta_b, 1_000_000,
+            0,
+            500,                 // deadline in the past
+        );
+    }
+
+    // Note: hooked-pool filtering in `lookup_pool` is verified by code
+    // inspection, not unit test. A proper test would need to drive a full
+    // auction → pool_factory → pool::set_hook flow because `set_hook`
+    // requires the factory resource account signer. This is tracked as a
+    // follow-up in the M6 test-coverage gap.
 }
